@@ -10,6 +10,9 @@ RUN npm install
 # Bundle app source
 COPY . .
 
+# Ensure the data directory exists
+RUN mkdir -p /app/data
+
 # Expose the application port
 EXPOSE 3000
 

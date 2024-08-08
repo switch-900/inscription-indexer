@@ -3,11 +3,27 @@ const bitcoin = require('bitcoinjs-lib');
 const axios = require('axios');
 const zmq = require('zeromq');
 const express = require('express');
+const fs = require('fs');
 require('dotenv').config();
 
-const db = new Database('/usr/src/app/data/inscriptions.db', { verbose: console.log });
+const dbPath = '/app/data/inscriptions.db';
+
+// Ensure the directory exists
+if (!fs.existsSync('/app/data')) {
+  fs.mkdirSync('/app/data', { recursive: true });
+  console.log('Created /app/data directory');
+}
+
+const db = new Database(dbPath, { verbose: console.log });
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3000;
+
+// Log environment variables
+console.log('BITCOIN_RPC_USER:', process.env.BITCOIN_RPC_USER);
+console.log('BITCOIN_RPC_PASSWORD:', process.env.BITCOIN_RPC_PASSWORD);
+console.log('BITCOIN_CORE_HOST:', process.env.BITCOIN_CORE_HOST);
+console.log('BITCOIN_CORE_PORT:', process.env.BITCOIN_CORE_PORT);
+console.log('BITCOIN_CORE_ZMQ_PORT:', process.env.BITCOIN_CORE_ZMQ_PORT);
 
 // Initialize database
 db.exec(`
@@ -64,8 +80,12 @@ async function syncBlock(blockHash) {
             db.prepare('INSERT OR REPLACE INTO inscriptions (txid, vout, type, content, timestamp) VALUES (?, ?, ?, ?, ?)').run(txid, vout, 'rune', script, Date.now());
           }
 
-          const address = bitcoin.address.fromOutputScript(out.script, bitcoin.networks.bitcoin);
-          db.prepare('INSERT OR REPLACE INTO utxos (txid, vout, address, value) VALUES (?, ?, ?, ?)').run(txid, vout, address, out.value);
+          try {
+            const address = bitcoin.address.fromOutputScript(out.script, bitcoin.networks.bitcoin);
+            db.prepare('INSERT OR REPLACE INTO utxos (txid, vout, address, value) VALUES (?, ?, ?, ?)').run(txid, vout, address, out.value);
+          } catch (e) {
+            console.warn(`Skipping output script: ${script}, Error: ${e.message}`);
+          }
         });
 
         tx.ins.forEach(input => {
@@ -82,7 +102,9 @@ async function syncBlock(blockHash) {
 
 // ZMQ setup for instant updates
 const zmqSocket = zmq.socket('sub');
-zmqSocket.connect(`tcp://${process.env.BITCOIN_CORE_HOST}:${process.env.BITCOIN_CORE_ZMQ_PORT}`);
+const zmqAddress = `tcp://${process.env.BITCOIN_CORE_HOST}:${process.env.BITCOIN_CORE_ZMQ_PORT}`;
+console.log('Connecting to ZMQ at:', zmqAddress);
+zmqSocket.connect(zmqAddress);
 zmqSocket.subscribe('hashblock');
 
 zmqSocket.on('message', async (topic, message) => {

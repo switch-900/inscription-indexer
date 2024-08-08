@@ -1,24 +1,20 @@
-version: "3.7"
-
+version: '3.7'
 services:
   inscription-indexer:
-    image: inscription-indexer:v1.0.0
-    restart: on-failure
-    stop_grace_period: 1m
+    build: .
     ports:
       - "3000:3000"
     environment:
-      PORT: 3000
-      BITCOIN_RPC_USER: ${APP_BITCOIN_RPC_USER}
-      BITCOIN_RPC_PASSWORD: ${APP_BITCOIN_RPC_PASS}
-      BITCOIN_CORE_HOST: ${APP_BITCOIN_NODE_IP}
-      BITCOIN_CORE_PORT: ${APP_BITCOIN_RPC_PORT}
-      BITCOIN_CORE_ZMQ_PORT: ${APP_BITCOIN_ZMQ_PORT}
+      - BITCOIN_RPC_USER=${BITCOIN_RPC_USER}
+      - BITCOIN_RPC_PASSWORD=${BITCOIN_RPC_PASSWORD}
+      - BITCOIN_CORE_HOST=${BITCOIN_CORE_HOST}
+      - BITCOIN_CORE_PORT=${BITCOIN_CORE_PORT}
+      - BITCOIN_CORE_ZMQ_PORT=${BITCOIN_CORE_ZMQ_PORT}
     volumes:
-      - ${APP_DATA_DIR}/data:/usr/src/app/data
+      - ./data:/app/data
     networks:
-      - umbrel_main_network
+      - umbrel_network
 
 networks:
-  umbrel_main_network:
+  umbrel_network:
     external: true
